@@ -1,6 +1,10 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/SerraHarmankaya/Chirpy/system"
+)
 
 func main() {
 
@@ -11,7 +15,13 @@ func main() {
 		Handler: &mux,
 	}
 
-	mux.Handle("/", http.FileServer(http.Dir("./")))
+	fileServer := http.FileServer(http.Dir("./"))
+
+	fileHandler := http.StripPrefix("/app", fileServer)
+
+	mux.Handle("/app/", fileHandler)
+
+	mux.HandleFunc("/healthz", system.ReadinessHandler)
 
 	err := server.ListenAndServe()
 	if err != nil {
