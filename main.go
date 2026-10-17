@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -32,6 +33,7 @@ func main() {
 	mux.HandleFunc("GET /healthz", system.ReadinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.fileserverHitsHandler)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetFileserverHitsHandler)
+	mux.HandleFunc("POST /api/validate_chirp", apiCfg.validateChirpHandler)
 
 	err := server.ListenAndServe()
 	if err != nil {
@@ -56,4 +58,33 @@ func (cfg *apiConfig) resetFileserverHitsHandler(w http.ResponseWriter, r *http.
 	cfg.fileserverHits.Store(0)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
+}
+
+func (cfg *apiConfig) validateChirpHandler(w http.ResponseWriter, r *http.Request) {
+
+	type Chirp struct {
+		Body string `json:"body"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+
+	newChirp := Chirp{}
+
+	err := decoder.Decode(&newChirp)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error": "Something went wrong"}`))
+		return
+	}
+
+	if len(newChirp.Body) > 400 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error": "Chirp is too long"}`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"valid": true}`))
 }
